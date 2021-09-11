@@ -36,7 +36,7 @@ team_t team = {
 };
 
 /* single word (4) or double word (8) alignment */
-// #define ALIGNMENT 8
+#define ALIGNMENT 8
 
 /* Basic constants and macros */
 #define WSIZE 4  // Word and header/footer size (bytes)
@@ -64,17 +64,20 @@ team_t team = {
 #define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
+#define PRED_FREEP(bp) *(GET(PRED_FREEP(bp)))  // 이전 가용블록을 가리키는 포인터 (predecessor)
+#define SUCC_FREEP(bp) *(GET(SUCC_FREEP(bp)))  // 다음 가용블록을 가리키는 포인터 (successor)
+
 /* rounds up to the nearest multiple of ALIGNMENT */
-// #define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~0x7)
-
-
-// #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
+#define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~0x7)
+#define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
 static char *heap_listp;
+static char *last_bp;  // next_fit을 위한 변수 선언
 static void *extend_heap(size_t);
 static void *coalesce(void *);
 static void *find_fit(size_t);
 static void place(void *, size_t);
+static void *next_fit(size_t);
 
 /* 
  * mm_init - initialize the malloc package.
@@ -136,9 +139,10 @@ void *mm_malloc(size_t size)
         asize = DSIZE * ((size + (DSIZE) + (DSIZE-1)) / DSIZE);
 
     /* Search the free list for a fit */
-    if ((bp = find_fit(asize)) != NULL)
+    if ((bp = next_fit(asize)) != NULL)
     {
         place(bp, asize);
+        last_bp = bp;
         return bp;
     }
 
@@ -147,6 +151,7 @@ void *mm_malloc(size_t size)
     if ((bp = extend_heap(extendsize / WSIZE)) == NULL)
         return NULL;
     place(bp, asize);
+    last_bp = bp;
     return bp;
 }
 
@@ -169,6 +174,7 @@ static void *coalesce(void *bp)
 
     if (prev_alloc && next_alloc)
     {  // Case 1
+        last_bp = bp;
         return bp;
     }
 
@@ -194,31 +200,32 @@ static void *coalesce(void *bp)
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
     }
-
+    last_bp = bp;
     return bp;
 }
 
 /*
  * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
  */
-// void *mm_realloc(void *ptr, size_t size)
-// {
-//     void *oldptr = ptr;
-//     void *newptr;
-//     size_t copySize;
+void *mm_realloc(void *ptr, size_t size)
+{
+    void *oldptr = ptr;
+    void *newptr;
+    size_t copySize;
     
-//     newptr = mm_malloc(size);
-//     if (newptr == NULL)
-//       return NULL;
-//     copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
-//     if (size < copySize)
-//       copySize = size;
-//     memcpy(newptr, oldptr, copySize);
-//     mm_free(oldptr);
-//     return newptr;
-// }
+    newptr = mm_malloc(size);
+    if (newptr == NULL)
+      return NULL;
+    // copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
+    copySize = GET_SIZE(HDRP(oldptr));
+    if (size < copySize)
+      copySize = size;
+    memcpy(newptr, oldptr, copySize);
+    mm_free(oldptr);
+    return newptr;
+}
 
-static void *find_Fit(size_t asize)
+static void *find_fit(size_t asize)
 {
     // First-fit search
     void *bp;
@@ -232,9 +239,48 @@ static void *find_Fit(size_t asize)
     return NULL;  // No fit
 }
 
+static void *next_fit(size_t asize)
+{
+    char *bp = last_bp;
 
+    for (bp = NEXT_BLKP(bp); GET_SIZE(HDRP(bp)) != 0; bp = NEXT_BLKP(bp))
+    {
+        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp))))
+        {
+            last_bp = bp;
+            return bp;
+        }
+    }
 
+    bp = heap_listp;
+    while (bp < last_bp)
+    {
+        bp = NEXT_BLKP(bp);
 
+        if (!GET_ALLOC(HDRP(bp)) && asize <= GET_SIZE(HDRP(bp)))
+        {
+            last_bp = bp;
+            return bp;
+        }
+    }
+    return NULL;
+}
+
+static void place(void *bp, size_t asize)
+{
+    size_t csize = GET_SIZE(HDRP(bp));
+    if ((csize - asize) >= (2 * DSIZE)) {
+        PUT(HDRP(bp), PACK(asize, 1));
+        PUT(FTRP(bp), PACK(asize, 1));
+        bp = NEXT_BLKP(bp);
+        PUT(HDRP(bp), PACK(csize - asize, 0));
+        PUT(FTRP(bp), PACK(csize - asize, 0));
+    }
+    else {
+        PUT(HDRP(bp), PACK(csize, 1));
+        PUT(FTRP(bp), PACK(csize, 1));
+    }
+}
 
 
 
