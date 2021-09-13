@@ -40,7 +40,7 @@ team_t team = {
 };
 
 /* single word (4) or double word (8) alignment */
-#define ALIGNMENT 8
+// #define ALIGNMENT 8
 
 /* Basic constants and macros */
 #define WSIZE 4  // Word and header/footer size (bytes)
@@ -69,8 +69,8 @@ team_t team = {
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
 /* rounds up to the nearest multiple of ALIGNMENT */
-#define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~0x7)
-#define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
+// #define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~0x7)
+// #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
 static char *heap_listp;
 #ifdef NEXT_FIT
@@ -81,7 +81,6 @@ static void *extend_heap(size_t);
 static void *coalesce(void *);
 static void *find_fit(size_t);
 static void place(void *, size_t);
-static void *next_fit(size_t);
 
 /* 
  * mm_init - initialize the malloc package.
@@ -181,7 +180,6 @@ static void *coalesce(void *bp)
 
     if (prev_alloc && next_alloc)
     {  // Case 1
-        // last_bp = bp;
         return bp;
     }
 
@@ -211,7 +209,6 @@ static void *coalesce(void *bp)
     if ((rover > (char *)bp) && (rover < NEXT_BLKP(bp)))
         rover = bp;
     #endif
-    // last_bp = bp;
     return bp;
 }
 
