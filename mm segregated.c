@@ -161,7 +161,7 @@ static void insert_node(void *ptr, size_t size) {
 
     // Keep size ascending order and search
     search_ptr = segregated_free_lists[list];
-    while ((search_ptr != NULL) && (size > GET_SIZE(HDRP(search_ptr)))) {
+    while (search_ptr != NULL) {
         insert_ptr = search_ptr;  // 들어갈 자리의 이전 포인터
         search_ptr = PRED(search_ptr);  // 들어갈 자리의 다음 포인터
     }
